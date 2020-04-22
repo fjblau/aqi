@@ -142,9 +142,11 @@ if __name__ == "__main__":
         url = 'http://api.weatherlink.com/v1/NoaaExt.json?user=001D0A0100EE&pass=2Ellbelt!&apiToken=B1A41C82525B4BB7AB170F5915D7C316'
         data = urlopen(url).read()
         d = json.loads(data)
+        singleEnv['source'] = "dornbirn"
         singleEnv['tempf'] = Decimal(d["temp_c"])
         singleEnv['bar'] = Decimal(d["pressure_mb"])
         singleEnv['hum'] = Decimal(d["relative_humidity"])
+        singleEnv['wind_dir'] = Decimal(d["wind_degrees"])
         cmd_set_sleep(0)
         cmd_set_mode(1);
         
@@ -162,7 +164,7 @@ if __name__ == "__main__":
                 singleEnv["aqi_10"] = aqi.to_iaqi(aqi.POLLUTANT_PM10, str(values[1]))
                 singleEnv["compositeAQI"] = aqi.to_aqi([(aqi.POLLUTANT_PM25, str(values[0])), (aqi.POLLUTANT_PM10, str(values[1]))])
                 singleEnv['timestamp'] = datetime.now().isoformat()
-                setDeckColor(singleEnv["compositeAQI"])
+                #setDeckColor(singleEnv["compositeAQI"])
                 if values[0] > 0:
                     es.index(index='sds2', body=singleEnv)
                     #blynk.virtual_write(7, singleEnv["compositeAQI"])
