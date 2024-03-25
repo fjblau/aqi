@@ -11,17 +11,18 @@ import pyhue
 from phue import Bridge
 from decimal import Decimal
 from elasticsearch import Elasticsearch 
-from datetime import datetime
+import datetime
 import paho.mqtt.client as paho
+import pytz
 
 encoder.FLOAT_REPR = lambda o: format(o, '.2f')
 
 def on_connect(client, userdata, flags, rc):
     print("CONNACK received with code %d." % (rc))
 
-client = paho.Client()
-client.on_connect = on_connect
-client.connect('172.104.235.199')
+#client = paho.Client()
+#client.on_connect = on_connect
+#client.connect('172.104.235.199')
 
 if sys.version_info[0] == 3:
     from urllib.request import urlopen
@@ -71,16 +72,16 @@ def setDeckColor(aqi):
     
     if aqi < 20:    
         bridge.set_light('Deck', 'on', False)
-    elif aqi < 50:  
+    elif aqi < 75:  
         bridge.set_light('Deck', 'on', True)  
         light_names["Deck"].hue = green
-    elif aqi < 150:
+    elif aqi < 100:
         bridge.set_light('Deck', 'on', True)
         light_names["Deck"].hue = yellow    
-    elif aqi < 175:
+    elif aqi < 125:
         bridge.set_light('Deck', 'on', True)
-        light_names["Deck"].hue = green    
-    elif aqi < 200:
+        light_names["Deck"].hue = orange    
+    elif aqi < 150:
         bridge.set_light('Deck', 'on', True)
         light_names["Deck"].hue = red 
  
@@ -197,27 +198,37 @@ def getSolar():
     return solarflux
 
 if __name__ == "__main__":
-        client.loop_start()
+#        client.loop_start()
          
         xray=getSolar()
+        wx_api = 'https://api.openweathermap.org/data/3.0/onecall?lat=47.40&lon=9.73&&appid=31216cba6865fefcfe68cfa688df0391&units=metric'
+        wx_data = requests.get(wx_api)
+        print(wx_data.json()["current"])
         singleEnv = {}
-        url = 'https://api.ecowitt.net/api/v3/device/real_time?application_key=971DEB582CFA59049B166125BB9DEF1B&api_key=009d974f-d4ae-4d61-ac9d-35306e2e2c67&mac=C4:5B:BE:6D:E3:44&call_back=all'
-        data = urlopen(url).read()
-        #print(data)
-        d = json.loads(data)
-        singleEnv['source'] = "dornbirn"
-        singleEnv['xray'] = Decimal(xray)
-        singleEnv['tempf'] = Decimal(d["data"]["outdoor"]["temperature"]["value"])
-        singleEnv['tempc'] = cToF(Decimal(d["data"]["outdoor"]["temperature"]["value"]))
-        singleEnv['bar'] = round(Decimal(d["data"]["pressure"]["relative"]["value"])* Decimal(33.8639), 1)
-        singleEnv['hum'] = Decimal(d["data"]["outdoor"]["humidity"]["value"])
-        singleEnv['rain_hourly'] = Decimal(d["data"]["rainfall"]["hourly"]["value"])
-        singleEnv['rain_daily'] = Decimal(d["data"]["rainfall"]["daily"]["value"])
-        singleEnv['rain_rate'] = Decimal(d["data"]["rainfall"]["rain_rate"]["value"])
-        singleEnv['wind_dir'] = Decimal(d["data"]["wind"]["wind_direction"]["value"])
-        singleEnv['wind_gust'] = Decimal(d["data"]["wind"]["wind_gust"]["value"])
-        singleEnv['fridgeT'] = cToF(Decimal(d["data"]["temp_and_humidity_ch2"]["temperature"]["value"]))
-        singleEnv['freezerT'] = cToF(Decimal(d["data"]["temp_and_humidity_ch3"]["temperature"]["value"]))
+        singleEnv['xray']=getSolar()
+        singleEnv['sunrise'] = datetime.datetime.fromtimestamp(wx_data.json()["current"]["sunrise"])
+        singleEnv['sunset'] = datetime.datetime.fromtimestamp(wx_data.json()["current"]["sunset"])
+        singleEnv['tempC'] = round(Decimal(wx_data.json()["current"]["temp"]), 2)
+        singleEnv['feelsLike'] = round(Decimal(wx_data.json()["current"]["feels_like"]), 2)
+        singleEnv['bar'] = round(Decimal(wx_data.json()["current"]["pressure"]), 1)
+        singleEnv['hum'] = round(Decimal(wx_data.json()["current"]["humidity"]), 1)
+        singleEnv['dewPoint'] = round(Decimal(wx_data.json()["current"]["dew_point"]), 2)
+        singleEnv['uvi'] = round(Decimal(wx_data.json()["current"]["uvi"]), 2)
+        singleEnv['clouds'] = round(Decimal(wx_data.json()["current"]["clouds"]), 0)
+        singleEnv['visibility'] = round(Decimal(wx_data.json()["current"]["visibility"]), 0)
+        singleEnv['wind_speed'] = round(Decimal(wx_data.json()["current"]["wind_speed"]), 0)
+        singleEnv['wind_gust'] = round(Decimal(wx_data.json()["hourly"][0]["wind_gust"]), 0)
+        
+        singleEnv['wind_dir'] = round(Decimal(wx_data.json()["current"]["wind_deg"]), 0)
+        singleEnv['weather'] = wx_data.json()["current"]["weather"][0]["main"]
+        if "rain" in wx_data.json()["current"]:
+           singleEnv['rain_hourly'] = round(Decimal(wx_data.json()["current"]["rain"]["1h"]), 2)
+           singleEnv['daily_rain'] = round(Decimal(wx_data.json()["daily"][0]["rain"]), 0)
+        else:
+           singleEnv['rain_hourly'] = 0 
+           singleEnv['daily_rain'] = 0
+        #singleEnv['fridgeT'] = cToF(Decimal(d["data"]["temp_and_humidity_ch2"]["temperature"]["value"]))
+        #singleEnv['freezerT'] = cToF(Decimal(d["data"]["temp_and_humidity_ch3"]["temperature"]["value"]))
 	#�singleEnv['soilCh1']= Decimal(d["data"]["soil_ch2"]["soilmoisture"]["value"])
         cmd_set_sleep(0)
         cmd_set_mode(1);
@@ -235,18 +246,21 @@ if __name__ == "__main__":
                 singleEnv["aqi_2_5"] = aqi.to_iaqi(aqi.POLLUTANT_PM25, str(values[0]))
                 singleEnv["aqi_10"] = aqi.to_iaqi(aqi.POLLUTANT_PM10, str(values[1]))
                 singleEnv["compositeAQI"] = aqi.to_aqi([(aqi.POLLUTANT_PM25, str(values[0])), (aqi.POLLUTANT_PM10, str(values[1]))])
-                singleEnv['timestamp'] = datetime.now().isoformat()
+                singleEnv['timestamp'] = datetime.datetime.now(pytz.timezone('Europe/Zurich')).isoformat()
                 
                 #setDeckColor(singleEnv["compositeAQI"])
-                setDeckColorSolar(xray)
+                #setDeckColorSolar(xray)
                 
-                if values[0] > 0:
+                if values[0] > 0 and t > 8:
                     es.index(index='sds2', body=singleEnv)
-                    client.publish("fjblau/env/pm2.5", str(singleEnv["compositeAQI"]) , qos=1)
-                    client.publish("fjblau/env/xray", str(singleEnv["xray"]) , qos=1)
-
-                    print(singleEnv)
-                time.sleep(2)
+#                    client.publish("fjblau/env/compositeAQI", str(singleEnv["compositeAQI"]) , qos=1)
+#                    client.publish("fjblau/env/xray", str(singleEnv["xray"]) , qos=1)
+#                    client.publish("fjblau/env/tempf", str(singleEnv["tempf"]) , qos=1)
+#                    client.publish("fjblau/env/bar", str(singleEnv["bar"]) , qos=1)
+#                    client.publish("fjblau/env/hum", str(singleEnv["hum"]) , qos=1)
+#                    client.publish("fjblau/env/all", str(singleEnv), qos=1)
+        print(singleEnv)
+        time.sleep(2)
         
         
 
