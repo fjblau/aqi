@@ -201,7 +201,7 @@ if __name__ == "__main__":
 #        client.loop_start()
          
         xray=getSolar()
-        wx_api = 'https://api.openweathermap.org/data/3.0/onecall?lat=47.40&lon=9.73&&appid=31216cba6865fefcfe68cfa688df0391&units=metric'
+        wx_api = 'https://api.openweathermap.org/data/3.0/onecall?lat=47.40&lon=9.73&&appid=<APPID>&units=metric'
         wx_data = requests.get(wx_api)
         print(wx_data.json()["current"])
         singleEnv = {}
