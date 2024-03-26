@@ -201,7 +201,7 @@ if __name__ == "__main__":
 #        client.loop_start()
          
         xray=getSolar()
-        wx_api = 'https://api.openweathermap.org/data/3.0/onecall?lat=47.40&lon=9.73&&appid={APPID}&units=metric'
+        wx_api = 'https://api.openweathermap.org/data/3.0/onecall?lat=47.40&lon=9.73&&appid=31216cba6865fefcfe68cfa688df0391&units=metric'
         wx_data = requests.get(wx_api)
         print(wx_data.json()["current"])
         singleEnv = {}
@@ -223,10 +223,13 @@ if __name__ == "__main__":
         singleEnv['weather'] = wx_data.json()["current"]["weather"][0]["main"]
         if "rain" in wx_data.json()["current"]:
            singleEnv['rain_hourly'] = round(Decimal(wx_data.json()["current"]["rain"]["1h"]), 2)
-           singleEnv['daily_rain'] = round(Decimal(wx_data.json()["daily"][0]["rain"]), 0)
         else:
            singleEnv['rain_hourly'] = 0 
+        if "rain" in wx_data.json()["daily"]:
+           singleEnv['daily_rain'] = round(Decimal(wx_data.json()["daily"][0]["rain"]), 0)
+        else:
            singleEnv['daily_rain'] = 0
+         
         #singleEnv['fridgeT'] = cToF(Decimal(d["data"]["temp_and_humidity_ch2"]["temperature"]["value"]))
         #singleEnv['freezerT'] = cToF(Decimal(d["data"]["temp_and_humidity_ch3"]["temperature"]["value"]))
 	#�singleEnv['soilCh1']= Decimal(d["data"]["soil_ch2"]["soilmoisture"]["value"])
